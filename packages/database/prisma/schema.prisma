@@ -1,0 +1,34 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Event {
+  id           String        @id @default(uuid())
+  name         String
+  type         String        // 'Interne' or 'Externe'
+  createdAt    DateTime      @default(now())
+  publications Publication[]
+}
+
+model Publication {
+  id           String   @id @default(uuid())
+  eventId      String
+  event        Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  platform     String   // 'LinkedIn', 'Facebook', 'X', etc.
+  publishedAt  DateTime
+  leadTimeDays Float
+  metrics      Metric[]
+}
+
+model Metric {
+  id            String      @id @default(uuid())
+  publicationId String
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  interactions  Int
+  recordedAt    DateTime    @default(now())
+}
