@@ -1,3 +1,14 @@
+export function getApiUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && envUrl !== "http://localhost:5000") {
+    return envUrl;
+  }
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:5000";
+}
+
 export function getAuthToken() {
   if (typeof window !== "undefined") {
     return localStorage.getItem("pulse_token");

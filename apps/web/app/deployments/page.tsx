@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername } from "../lib/auth";
+import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername, getApiUrl } from "../lib/auth";
 
 interface Deployment {
   id: string;
@@ -67,7 +67,7 @@ export default function DeploymentsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+  const API_URL = getApiUrl();
 
   const fetchData = async () => {
     if (!getAuthToken()) return;
