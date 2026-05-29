@@ -5,7 +5,8 @@ COPY package*.json ./
 COPY apps/web/package*.json ./apps/web/
 RUN npm ci
 COPY apps/web/ ./apps/web/
-ENV NEXT_PUBLIC_API_URL="http://localhost:5000"
+ARG NEXT_PUBLIC_API_URL="http://localhost:5000"
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN npm run build --workspace=@pulse/web
 
 FROM node:22-alpine AS runner

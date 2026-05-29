@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername, getApiUrl } from "../lib/auth";
+import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername } from "../lib/auth";
 
 interface Deployment {
   id: string;
@@ -53,6 +53,12 @@ export default function DeploymentsPage() {
   const [showEventModal, setShowEventModal] = useState(false);
   const [showPubModal, setShowPubModal] = useState(false);
 
+  // CRUD editing state
+  const [editingPubId, setEditingPubId] = useState<string | null>(null);
+  const [editingEventId, setEditingEventId] = useState<string | null>(null);
+  const [editingEventName, setEditingEventName] = useState("");
+  const [editingEventType, setEditingEventType] = useState("Externe");
+
   // Forms state
   const [newEvent, setNewEvent] = useState({ name: "", type: "Externe" });
   const [newPub, setNewPub] = useState({
@@ -67,7 +73,7 @@ export default function DeploymentsPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const API_URL = getApiUrl();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   const fetchData = async () => {
     if (!getAuthToken()) return;
@@ -138,6 +144,60 @@ export default function DeploymentsPage() {
     }
   };
 
+  const handleUpdateEvent = async (id: string) => {
+    if (!editingEventName.trim()) return;
+    setFormLoading(true);
+    setFormError(null);
+    try {
+      const res = await authenticatedFetch(`${API_URL}/api/events/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingEventName, type: editingEventType })
+      });
+      if (!res.ok) throw new Error("Erreur lors de la modification de la campagne.");
+      setEditingEventId(null);
+      await fetchData();
+    } catch (err: any) {
+      setFormError(err.message || "Erreur de connexion.");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    if (!confirm("Voulez-vous vraiment supprimer cette campagne ? Cela supprimera toutes les publications associées.")) return;
+    setFormLoading(true);
+    setFormError(null);
+    try {
+      const res = await authenticatedFetch(`${API_URL}/api/events/${id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Erreur lors de la suppression de la campagne.");
+      await fetchData();
+    } catch (err: any) {
+      setFormError(err.message || "Erreur de connexion.");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleDeletePublication = async (id: string) => {
+    if (!confirm("Voulez-vous vraiment supprimer cette publication ?")) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await authenticatedFetch(`${API_URL}/api/publications/${id}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) throw new Error("Erreur lors de la suppression de la publication.");
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || "Erreur de connexion.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreatePublication = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
@@ -151,8 +211,13 @@ export default function DeploymentsPage() {
     }
 
     try {
-      const res = await authenticatedFetch(`${API_URL}/api/publications`, {
-        method: "POST",
+      const url = editingPubId 
+        ? `${API_URL}/api/publications/${editingPubId}`
+        : `${API_URL}/api/publications`;
+      const method = editingPubId ? "PUT" : "POST";
+
+      const res = await authenticatedFetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: newPub.eventId,
@@ -169,6 +234,7 @@ export default function DeploymentsPage() {
         customPlatform: "",
         interactions: "100"
       }));
+      setEditingPubId(null);
       setShowPubModal(false);
       await fetchData();
     } catch (err: any) {
@@ -321,7 +387,8 @@ export default function DeploymentsPage() {
                   <th className="p-4">Plateforme</th>
                   <th className="p-4">Date de Publication</th>
                   <th className="p-4">Lead Time (Jours)</th>
-                  <th className="p-4 pr-6 text-right">Engagement (Int.)</th>
+                  <th className="p-4 text-right">Engagement (Int.)</th>
+                  <th className="p-4 pr-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-sm">
@@ -345,12 +412,43 @@ export default function DeploymentsPage() {
                         })}
                       </td>
                       <td className="p-4 text-muted-foreground">{d.leadTimeDays} jours</td>
-                      <td className="p-4 pr-6 text-right font-semibold font-mono">{d.interactions.toLocaleString()}</td>
+                      <td className="p-4 text-right font-semibold font-mono">{d.interactions.toLocaleString()}</td>
+                      <td className="p-4 pr-6 text-right">
+                        <div className="flex justify-end gap-2 text-xs">
+                          <button
+                            onClick={() => {
+                              const event = events.find(e => e.name === d.activityName);
+                              setEditingPubId(d.id);
+                              setNewPub({
+                                eventId: event ? event.id : "",
+                                platform: ["LinkedIn", "Facebook", "X", "YouTube", "Instagram"].includes(d.platform) ? d.platform : "Autre",
+                                customPlatform: ["LinkedIn", "Facebook", "X", "YouTube", "Instagram"].includes(d.platform) ? "" : d.platform,
+                                publishedAt: new Date(d.publishedAt).toISOString().split("T")[0],
+                                leadTimeDays: String(d.leadTimeDays),
+                                interactions: String(d.interactions)
+                              });
+                              setFormError(null);
+                              setShowPubModal(true);
+                            }}
+                            className="text-primary hover:underline font-semibold"
+                            title="Modifier"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => handleDeletePublication(d.id)}
+                            className="text-destructive hover:underline font-semibold"
+                            title="Supprimer"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-8 text-center text-muted-foreground">
                       Aucune publication ne correspond à vos filtres.
                     </td>
                   </tr>
@@ -427,6 +525,78 @@ export default function DeploymentsPage() {
                 <button type="submit" disabled={formLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">{formLoading ? "Enregistrement..." : "Enregistrer"}</button>
               </div>
             </form>
+
+            {/* List of existing campaigns to edit/delete */}
+            <div className="mt-6 border-t border-border pt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Campagnes / Activités Existantes</h4>
+              <div className="max-h-[180px] overflow-y-auto space-y-2 pr-1">
+                {events.map((ev) => (
+                  <div key={ev.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border text-sm">
+                    {editingEventId === ev.id ? (
+                      <div className="flex-1 space-y-2 mr-2">
+                        <input
+                          type="text"
+                          value={editingEventName}
+                          onChange={(e) => setEditingEventName(e.target.value)}
+                          className="w-full rounded border border-input bg-background p-1.5 text-xs focus:outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={editingEventType}
+                            onChange={(e) => setEditingEventType(e.target.value)}
+                            className="rounded border border-input bg-background p-1 text-xs focus:outline-none"
+                          >
+                            <option value="Interne">Interne</option>
+                            <option value="Externe">Externe</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateEvent(ev.id)}
+                            className="px-2 py-1 bg-primary text-primary-foreground rounded text-[10px] font-semibold"
+                          >
+                            Valider
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingEventId(null)}
+                            className="px-2 py-1 border border-border rounded text-[10px] font-semibold"
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0 pr-2">
+                          <p className="font-medium truncate text-xs">{ev.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{ev.type}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingEventId(ev.id);
+                              setEditingEventName(ev.name);
+                              setEditingEventType(ev.type);
+                            }}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEvent(ev.id)}
+                            className="text-xs text-destructive hover:underline font-medium"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -438,8 +608,12 @@ export default function DeploymentsPage() {
             <button onClick={() => setShowPubModal(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
-            <h3 className="text-lg font-bold mb-1">Enregistrer une Publication</h3>
-            <p className="text-xs text-muted-foreground mb-6">Ajouter un post et renseigner ses performances initiales.</p>
+            <h3 className="text-lg font-bold mb-1">
+              {editingPubId ? "Modifier la Publication" : "Enregistrer une Publication"}
+            </h3>
+            <p className="text-xs text-muted-foreground mb-6">
+              {editingPubId ? "Modifier les informations et les performances de la publication." : "Ajouter un post et renseigner ses performances initiales."}
+            </p>
             {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
             <form onSubmit={handleCreatePublication} className="space-y-4">
               <div>
@@ -489,8 +663,10 @@ export default function DeploymentsPage() {
                 />
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <button type="button" onClick={() => setShowPubModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Annuler</button>
-                <button type="submit" disabled={formLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">{formLoading ? "Enregistrement..." : "Enregistrer"}</button>
+                <button type="button" onClick={() => { setShowPubModal(false); setEditingPubId(null); }} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Annuler</button>
+                <button type="submit" disabled={formLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+                  {formLoading ? "Enregistrement..." : (editingPubId ? "Modifier" : "Enregistrer")}
+                </button>
               </div>
             </form>
           </div>

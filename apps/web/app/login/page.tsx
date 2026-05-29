@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Activity, Lock, User, ArrowRight } from "lucide-react";
-import { setAuthToken, getAuthToken, getApiUrl } from "../lib/auth";
+import { setAuthToken, getAuthToken } from "../lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,7 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = getApiUrl();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   useEffect(() => {
     // If user is already authenticated, redirect them to dashboard

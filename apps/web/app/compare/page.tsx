@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername, getApiUrl } from "../lib/auth";
+import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername } from "../lib/auth";
 import {
   ResponsiveContainer,
   BarChart,
@@ -62,7 +62,7 @@ export default function ComparePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = getApiUrl();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   const fetchComparison = async () => {
     if (!getAuthToken()) return;
