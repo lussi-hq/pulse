@@ -88,7 +88,7 @@ export default function DeploymentsPage() {
         setNewPub(prev => ({ ...prev, eventId: eventsData[0].id }));
       }
     } catch (err: any) {
-      setError(err.message || "Impossible de charger les déploiements.");
+      setError(err.message || "Impossible de charger les publications.");
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,7 @@ export default function DeploymentsPage() {
           interactions: Number(newPub.interactions)
         })
       });
-      if (!res.ok) throw new Error("Erreur lors de l'enregistrement du déploiement.");
+      if (!res.ok) throw new Error("Erreur lors de l'enregistrement de la publication.");
       
       setNewPub(prev => ({
         ...prev,
@@ -191,7 +191,7 @@ export default function DeploymentsPage() {
           </Link>
           <nav className="hidden md:flex gap-5 text-sm font-medium text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">Vue d'ensemble</Link>
-            <Link href="/deployments" className="text-foreground transition-colors">Déploiements</Link>
+            <Link href="/deployments" className="text-foreground transition-colors">Publications</Link>
             <Link href="/compare" className="hover:text-foreground transition-colors">Comparateur</Link>
           </nav>
         </div>
@@ -223,7 +223,7 @@ export default function DeploymentsPage() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Registre des Déploiements (Backlog)</h1>
+              <h1 className="text-2xl font-bold tracking-tight">Registre des Publications</h1>
               <p className="text-sm text-muted-foreground">Historique complet des publications et des performances associées.</p>
             </div>
           </div>
@@ -261,7 +261,7 @@ export default function DeploymentsPage() {
 
         <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-6 border-b border-border gap-4 bg-muted/20">
-            <h3 className="font-bold text-base">Déploiements ({filteredDeployments.length})</h3>
+            <h3 className="font-bold text-base">Publications ({filteredDeployments.length})</h3>
             <div className="flex flex-wrap items-center gap-3">
               {/* Search Bar */}
               <div className="relative">
@@ -329,7 +329,7 @@ export default function DeploymentsPage() {
                 ) : (
                   <tr>
                     <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                      Aucun déploiement ne correspond à vos filtres.
+                      Aucune publication ne correspond à vos filtres.
                     </td>
                   </tr>
                 )}
@@ -345,7 +345,7 @@ export default function DeploymentsPage() {
                 <span className="font-semibold">
                   {Math.min(indexOfLastItem, filteredDeployments.length)}
                 </span>{" "}
-                sur <span className="font-semibold">{filteredDeployments.length}</span> déploiements
+                sur <span className="font-semibold">{filteredDeployments.length}</span> publications
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -380,7 +380,7 @@ export default function DeploymentsPage() {
               <X className="h-5 w-5" />
             </button>
             <h3 className="text-lg font-bold mb-1">Créer une Campagne / Activité</h3>
-            <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de déploiement.</p>
+            <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de publication.</p>
             {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
             <form onSubmit={handleCreateEvent} className="space-y-4">
               <div>

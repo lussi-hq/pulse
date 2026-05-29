@@ -150,7 +150,7 @@ export default function ComparePage() {
           </Link>
           <nav className="hidden md:flex gap-5 text-sm font-medium text-muted-foreground">
             <Link href="/" className="hover:text-foreground transition-colors">Vue d'ensemble</Link>
-            <Link href="/deployments" className="hover:text-foreground transition-colors">Déploiements</Link>
+            <Link href="/deployments" className="hover:text-foreground transition-colors">Publications</Link>
             <Link href="/compare" className="text-foreground transition-colors">Comparateur</Link>
           </nav>
         </div>

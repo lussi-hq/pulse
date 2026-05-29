@@ -185,7 +185,7 @@ export default function Dashboard() {
           interactions: Number(newPub.interactions)
         })
       });
-      if (!res.ok) throw new Error("Erreur lors de l'enregistrement du déploiement.");
+      if (!res.ok) throw new Error("Erreur lors de l'enregistrement de la publication.");
       
       setNewPub(prev => ({
         ...prev,
@@ -220,7 +220,7 @@ export default function Dashboard() {
           </Link>
           <nav className="hidden md:flex gap-5 text-sm font-medium text-muted-foreground">
             <Link href="/" className="text-foreground transition-colors">Vue d'ensemble</Link>
-            <Link href="/deployments" className="hover:text-foreground transition-colors">Déploiements</Link>
+            <Link href="/deployments" className="hover:text-foreground transition-colors">Publications</Link>
             <Link href="/compare" className="hover:text-foreground transition-colors">Comparateur</Link>
           </nav>
         </div>
@@ -522,7 +522,7 @@ export default function Dashboard() {
               <X className="h-5 w-5" />
             </button>
             <h3 className="text-lg font-bold mb-1">Créer une Campagne / Activité</h3>
-            <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de déploiement.</p>
+            <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de publication.</p>
             {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
             <form onSubmit={handleCreateEvent} className="space-y-4">
               <div>
