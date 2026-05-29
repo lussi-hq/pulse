@@ -4,12 +4,16 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: builder
-    command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma && npx prisma db seed --schema=packages/database/prisma/schema.prisma && npm run dev --workspace=@pulse/api"
+    command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma && npx prisma db seed --schema=packages/database/prisma/schema.prisma && node apps/api/create-admin.js && npm run dev --workspace=@pulse/api"
     ports:
       - "5000:5000"
     environment:
       - DATABASE_URL=file:/app/data/pulse.db
       - PORT=5000
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=adminpassword
+      - JWT_SECRET=pulse-development-secret-key-987654321
+
     volumes:
       - .:/app
       - /app/node_modules
