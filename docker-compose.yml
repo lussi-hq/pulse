@@ -6,9 +6,9 @@ services:
     environment:
       - DATABASE_URL=file:/app/data/pulse.db
       - PORT=5000
-      - ADMIN_USERNAME=admin
-      - ADMIN_PASSWORD=adminpassword
-      - JWT_SECRET=pulse-production-super-secret-key-12345
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - JWT_SECRET=${JWT_SECRET}
 
     volumes:
       - pulse_data:/app/data
