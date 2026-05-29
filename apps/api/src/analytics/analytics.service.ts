@@ -5,14 +5,23 @@ import { PrismaService } from '../prisma.service';
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
 
-  async getAnalytics() {
-    // Current date is in May 2026.
-    const startM = new Date('2026-05-01T00:00:00.000Z');
-    const endM = new Date('2026-05-31T23:59:59.999Z');
+  async getAnalytics(monthStr?: string) {
+    let year = 2026;
+    let month = 4; // May (0-indexed)
+    if (monthStr && /^\d{4}-\d{2}$/.test(monthStr)) {
+      const parts = monthStr.split('-');
+      year = parseInt(parts[0]);
+      month = parseInt(parts[1]) - 1;
+    } else {
+      year = 2026;
+      month = 4;
+    }
 
-    // M-1: Previous Month (April 2026)
-    const startM1 = new Date('2026-04-01T00:00:00.000Z');
-    const endM1 = new Date('2026-04-30T23:59:59.999Z');
+    const startM = new Date(year, month, 1, 0, 0, 0, 0);
+    const endM = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const startM1 = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const endM1 = new Date(year, month, 0, 23, 59, 59, 999);
 
     // Fetch publications for M and M-1
     const pubsM = await this.prisma.publication.findMany({

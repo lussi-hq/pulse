@@ -11,12 +11,10 @@ import {
   Calendar,
   Share2,
   PieChart as PieIcon,
-  Search,
-  ExternalLink,
-  ChevronDown,
   RefreshCw,
   Plus,
-  X
+  X,
+  ChevronDown
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -33,6 +31,7 @@ import {
   Legend,
   CartesianGrid
 } from "recharts";
+import Link from "next/link";
 
 interface KPI {
   value: number;
@@ -57,16 +56,6 @@ interface AnalyticsData {
   globalImpactDistribution: Array<{ eventName: string; value: number }>;
 }
 
-interface Deployment {
-  id: string;
-  activityName: string;
-  type: string;
-  platform: string;
-  publishedAt: string;
-  leadTimeDays: number;
-  interactions: number;
-}
-
 interface CampaignEvent {
   id: string;
   name: string;
@@ -76,14 +65,12 @@ interface CampaignEvent {
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [events, setEvents] = useState<CampaignEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Search / Filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("All");
+
+  // Month selector
+  const [selectedMonth, setSelectedMonth] = useState("2026-05");
 
   // Modals state
   const [showEventModal, setShowEventModal] = useState(false);
@@ -103,32 +90,25 @@ export default function Dashboard() {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
-  const fetchData = async () => {
+  const fetchData = async (month = selectedMonth) => {
     setLoading(true);
     setError(null);
     try {
-      const [resAnalytics, resDeployments, resEvents] = await Promise.all([
-        fetch(`${API_URL}/api/analytics`),
-        fetch(`${API_URL}/api/deployments`),
+      const [resAnalytics, resEvents] = await Promise.all([
+        fetch(`${API_URL}/api/analytics?month=${month}`),
         fetch(`${API_URL}/api/events`)
       ]);
 
-      if (!resAnalytics.ok || !resDeployments.ok || !resEvents.ok) {
+      if (!resAnalytics.ok || !resEvents.ok) {
         throw new Error("Erreur lors de la récupération des données du serveur API.");
       }
 
       const analyticsData = await resAnalytics.json();
-      const deploymentsData = await resDeployments.json();
       const eventsData = await resEvents.json();
 
       setAnalytics(analyticsData);
-      setDeployments(deploymentsData);
       setEvents(eventsData);
 
       // Pre-select first event in form if available
@@ -144,12 +124,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     setMounted(true);
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterType]);
+    fetchData(selectedMonth);
+  }, [selectedMonth]);
 
   if (!mounted) return null;
 
@@ -176,10 +152,7 @@ export default function Dashboard() {
       const created = await res.json();
       setNewEvent({ name: "", type: "Externe" });
       setShowEventModal(false);
-      
-      // Auto select the new event for subsequent publication forms
       setNewPub(prev => ({ ...prev, eventId: created.id }));
-      
       await fetchData();
     } catch (err: any) {
       setFormError(err.message || "Erreur de connexion.");
@@ -228,36 +201,33 @@ export default function Dashboard() {
     }
   };
 
-  const filteredDeployments = deployments.filter((d) => {
-    const matchesSearch = d.activityName.toLowerCase().includes(searchTerm.toLowerCase()) || d.platform.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "All" || d.type === filterType;
-    return matchesSearch && matchesType;
-  });
-
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentDeployments = filteredDeployments.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredDeployments.length / itemsPerPage);
+  const months = [
+    { value: "2026-05", label: "Mai 2026 (En cours)" },
+    { value: "2026-04", label: "Avril 2026" },
+    { value: "2026-03", label: "Mars 2026" },
+    { value: "2026-02", label: "Février 2026" },
+    { value: "2026-01", label: "Janvier 2026" }
+  ];
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-background text-foreground transition-colors duration-250">
       {/* Header bar matching dashboard-01 */}
       <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/85 backdrop-blur px-6 justify-between">
         <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
             <Activity className="h-6 w-6 stroke-[2.5]" />
             <span>PULSE</span>
-          </div>
+          </Link>
           <nav className="hidden md:flex gap-5 text-sm font-medium text-muted-foreground">
-            <a href="#" className="text-foreground transition-colors">Vue d'ensemble</a>
-            <a href="#registre" className="hover:text-foreground transition-colors">Déploiements</a>
-            <a href="#" className="hover:text-foreground transition-colors">Paramètres</a>
+            <Link href="/" className="text-foreground transition-colors">Vue d'ensemble</Link>
+            <Link href="/deployments" className="hover:text-foreground transition-colors">Déploiements</Link>
+            <Link href="/compare" className="hover:text-foreground transition-colors">Comparateur</Link>
           </nav>
         </div>
 
         <div className="flex items-center gap-4">
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={loading}
             className="flex items-center justify-center p-2 rounded-md hover:bg-muted border border-border text-muted-foreground hover:text-foreground transition-all duration-200"
             title="Rafraîchir"
@@ -281,7 +251,21 @@ export default function Dashboard() {
             <h1 className="text-3xl font-extrabold tracking-tight">Tableau Opérationnel</h1>
             <p className="text-sm text-muted-foreground">Analysez et pilotez les lancements et l'impact social en temps réel.</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap gap-3">
+            {/* Month Dropdown Selector */}
+            <div className="relative">
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="appearance-none pl-4 pr-10 py-2 rounded-lg border border-input bg-card text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
+              >
+                {months.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-3 h-4 w-4 pointer-events-none text-muted-foreground" />
+            </div>
+
             <button
               onClick={() => { setFormError(null); setShowEventModal(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border text-secondary-foreground rounded-lg text-sm font-semibold hover:bg-muted transition-all"
@@ -391,7 +375,7 @@ export default function Dashboard() {
 
             {/* Charts Section */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Chart 1: Timeline de l'Engagement (Dynamic Platforms) */}
+              {/* Chart 1: Timeline de l'Engagement */}
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <div className="flex flex-col gap-1 pb-4">
                   <h3 className="text-base font-bold tracking-tight flex items-center gap-2">
@@ -526,123 +510,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Registre des Déploiements (Backlog) Table */}
-            <div id="registre" className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-6 border-b border-border gap-4 bg-muted/20">
-                <div>
-                  <h3 className="text-base font-bold tracking-tight">Registre des Déploiements (Backlog)</h3>
-                  <p className="text-xs text-muted-foreground">Historique complet des publications et des performances associées.</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <input
-                      type="search"
-                      placeholder="Rechercher..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-4 py-2 w-[180px] sm:w-[220px] rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                    />
-                  </div>
-                  {/* Filter Select */}
-                  <div className="relative">
-                    <select
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="appearance-none pl-3 pr-8 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                    >
-                      <option value="All">Tous les types</option>
-                      <option value="Interne">Interne</option>
-                      <option value="Externe">Externe</option>
-                    </select>
-                    <ChevronDown className="absolute right-2.5 top-3 h-4 w-4 pointer-events-none text-muted-foreground" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Table rendering */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase text-muted-foreground tracking-wider">
-                      <th className="p-4 pl-6">Activité / Campagne</th>
-                      <th className="p-4">Zone</th>
-                      <th className="p-4">Plateforme</th>
-                      <th className="p-4">Date de Publication</th>
-                      <th className="p-4">Lead Time (Jours)</th>
-                      <th className="p-4 pr-6 text-right">Engagement (Int.)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border text-sm">
-                    {currentDeployments.length > 0 ? (
-                      currentDeployments.map((d) => (
-                        <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="p-4 pl-6 font-semibold">{d.activityName}</td>
-                          <td className="p-4">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              d.type === "Interne" ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400" : "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                            }`}>
-                              {d.type}
-                            </span>
-                          </td>
-                          <td className="p-4 font-mono text-xs">{d.platform}</td>
-                          <td className="p-4 text-muted-foreground">
-                            {new Date(d.publishedAt).toLocaleDateString("fr-FR", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric"
-                            })}
-                          </td>
-                          <td className="p-4 text-muted-foreground">{d.leadTimeDays} jours</td>
-                          <td className="p-4 pr-6 text-right font-semibold font-mono">{d.interactions.toLocaleString()}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                          Aucun déploiement ne correspond à vos filtres.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10 text-sm">
-                  <div className="text-muted-foreground">
-                    Affichage de <span className="font-semibold">{indexOfFirstItem + 1}</span> à{" "}
-                    <span className="font-semibold">
-                      {Math.min(indexOfLastItem, filteredDeployments.length)}
-                    </span>{" "}
-                    sur <span className="font-semibold">{filteredDeployments.length}</span> déploiements
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted disabled:opacity-50 disabled:hover:bg-background transition-colors"
-                    >
-                      Précédent
-                    </button>
-                    <span className="text-muted-foreground font-medium px-2">
-                      Page <span className="font-semibold text-foreground">{currentPage}</span> sur{" "}
-                      <span className="font-semibold text-foreground">{totalPages}</span>
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted disabled:opacity-50 disabled:hover:bg-background transition-colors"
-                    >
-                      Suivant
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         ) : null}
       </main>
@@ -651,34 +518,24 @@ export default function Dashboard() {
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg relative animate-in fade-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowEventModal(false)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-            >
+            <button onClick={() => setShowEventModal(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
             <h3 className="text-lg font-bold mb-1">Créer une Campagne / Activité</h3>
             <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de déploiement.</p>
-            
             {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
-            
             <form onSubmit={handleCreateEvent} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Nom de l'Activité</label>
                 <input
-                  type="text"
-                  required
-                  placeholder="ex: Séminaire Cybersécurité RDC"
-                  value={newEvent.name}
-                  onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))}
+                  type="text" required placeholder="ex: Séminaire Cybersécurité RDC"
+                  value={newEvent.name} onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Type de Zone</label>
-                <select
-                  value={newEvent.type}
-                  onChange={(e) => setNewEvent(prev => ({ ...prev, type: e.target.value }))}
+                <select value={newEvent.type} onChange={(e) => setNewEvent(prev => ({ ...prev, type: e.target.value }))}
                   className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 >
                   <option value="Interne">Interne</option>
@@ -686,20 +543,8 @@ export default function Dashboard() {
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowEventModal(false)}
-                  className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-                >
-                  {formLoading ? "Enregistrement..." : "Enregistrer"}
-                </button>
+                <button type="button" onClick={() => setShowEventModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Annuler</button>
+                <button type="submit" disabled={formLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">{formLoading ? "Enregistrement..." : "Enregistrer"}</button>
               </div>
             </form>
           </div>
@@ -710,37 +555,24 @@ export default function Dashboard() {
       {showPubModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg relative animate-in fade-in zoom-in-95 duration-200">
-            <button
-              onClick={() => setShowPubModal(false)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
-            >
+            <button onClick={() => setShowPubModal(false)} className="absolute right-4 top-4 text-muted-foreground hover:text-foreground">
               <X className="h-5 w-5" />
             </button>
             <h3 className="text-lg font-bold mb-1">Enregistrer une Publication</h3>
             <p className="text-xs text-muted-foreground mb-6">Ajouter un post et renseigner ses performances initiales.</p>
-
             {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
-
             <form onSubmit={handleCreatePublication} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Activité / Thème</label>
-                <select
-                  value={newPub.eventId}
-                  required
-                  onChange={(e) => setNewPub(prev => ({ ...prev, eventId: e.target.value }))}
+                <select value={newPub.eventId} required onChange={(e) => setNewPub(prev => ({ ...prev, eventId: e.target.value }))}
                   className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  {events.map((e) => (
-                    <option key={e.id} value={e.id}>{e.name} ({e.type})</option>
-                  ))}
+                  {events.map((e) => <option key={e.id} value={e.id}>{e.name} ({e.type})</option>)}
                 </select>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Réseau Social</label>
-                <select
-                  value={newPub.platform}
-                  onChange={(e) => setNewPub(prev => ({ ...prev, platform: e.target.value }))}
+                <select value={newPub.platform} onChange={(e) => setNewPub(prev => ({ ...prev, platform: e.target.value }))}
                   className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary mb-2"
                 >
                   <option value="LinkedIn">LinkedIn</option>
@@ -750,71 +582,35 @@ export default function Dashboard() {
                   <option value="YouTube">YouTube</option>
                   <option value="Autre">Autre Réseau</option>
                 </select>
-
                 {newPub.platform === "Autre" && (
-                  <input
-                    type="text"
-                    required
-                    placeholder="Nom du réseau (ex: TikTok, Threads)"
-                    value={newPub.customPlatform}
-                    onChange={(e) => setNewPub(prev => ({ ...prev, customPlatform: e.target.value }))}
+                  <input type="text" required placeholder="Nom du réseau" value={newPub.customPlatform} onChange={(e) => setNewPub(prev => ({ ...prev, customPlatform: e.target.value }))}
                     className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 )}
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Date de publication</label>
-                  <input
-                    type="date"
-                    required
-                    value={newPub.publishedAt}
-                    onChange={(e) => setNewPub(prev => ({ ...prev, publishedAt: e.target.value }))}
+                  <input type="date" required value={newPub.publishedAt} onChange={(e) => setNewPub(prev => ({ ...prev, publishedAt: e.target.value }))}
                     className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Lead Time (Jours)</label>
-                  <input
-                    type="number"
-                    required
-                    min="0"
-                    step="0.1"
-                    value={newPub.leadTimeDays}
-                    onChange={(e) => setNewPub(prev => ({ ...prev, leadTimeDays: e.target.value }))}
+                  <input type="number" required min="0" step="0.1" value={newPub.leadTimeDays} onChange={(e) => setNewPub(prev => ({ ...prev, leadTimeDays: e.target.value }))}
                     className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
-
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Engagement (Interactions)</label>
-                <input
-                  type="number"
-                  required
-                  min="0"
-                  value={newPub.interactions}
-                  onChange={(e) => setNewPub(prev => ({ ...prev, interactions: e.target.value }))}
+                <input type="number" required min="0" value={newPub.interactions} onChange={(e) => setNewPub(prev => ({ ...prev, interactions: e.target.value }))}
                   className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                 />
               </div>
-
               <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowPubModal(false)}
-                  className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={formLoading}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
-                >
-                  {formLoading ? "Enregistrement..." : "Enregistrer"}
-                </button>
+                <button type="button" onClick={() => setShowPubModal(false)} className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted">Annuler</button>
+                <button type="submit" disabled={formLoading} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">{formLoading ? "Enregistrement..." : "Enregistrer"}</button>
               </div>
             </form>
           </div>

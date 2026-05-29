@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('api')
@@ -6,8 +6,8 @@ export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
   @Get('analytics')
-  async getAnalytics() {
-    return this.analyticsService.getAnalytics();
+  async getAnalytics(@Query('month') month?: string) {
+    return this.analyticsService.getAnalytics(month);
   }
 
   @Get('deployments')
