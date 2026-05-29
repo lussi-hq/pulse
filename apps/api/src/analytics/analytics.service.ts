@@ -205,4 +205,69 @@ export class AnalyticsService {
 
     return publication;
   }
+
+  async updateEvent(id: string, data: { name: string; type: string }) {
+    return this.prisma.event.update({
+      where: { id },
+      data: {
+        name: data.name,
+        type: data.type
+      }
+    });
+  }
+
+  async deleteEvent(id: string) {
+    return this.prisma.event.delete({
+      where: { id }
+    });
+  }
+
+  async updatePublication(id: string, data: {
+    eventId: string;
+    platform: string;
+    publishedAt: string;
+    leadTimeDays: number;
+    interactions: number;
+  }) {
+    const publishedAt = new Date(data.publishedAt);
+    const publication = await this.prisma.publication.update({
+      where: { id },
+      data: {
+        eventId: data.eventId,
+        platform: data.platform,
+        publishedAt,
+        leadTimeDays: Number(data.leadTimeDays)
+      }
+    });
+
+    const existingMetric = await this.prisma.metric.findFirst({
+      where: { publicationId: id }
+    });
+
+    if (existingMetric) {
+      await this.prisma.metric.update({
+        where: { id: existingMetric.id },
+        data: {
+          interactions: Number(data.interactions),
+          recordedAt: publishedAt
+        }
+      });
+    } else {
+      await this.prisma.metric.create({
+        data: {
+          publicationId: id,
+          interactions: Number(data.interactions),
+          recordedAt: publishedAt
+        }
+      });
+    }
+
+    return publication;
+  }
+
+  async deletePublication(id: string) {
+    return this.prisma.publication.delete({
+      where: { id }
+    });
+  }
 }
