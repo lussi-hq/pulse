@@ -91,6 +91,7 @@ async function main() {
         eventId: eventM1.id,
         platform: 'Facebook',
         publishedAt: new Date(ev.dateM1.getTime() + 24 * 60 * 60 * 1000),
+        leadTimeDays: parseFloat((Math.random() * 3 + 1).toFixed(1)),
       }
     });
 

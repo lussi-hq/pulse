@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 
 @Controller('api')
@@ -13,5 +13,28 @@ export class AnalyticsController {
   @Get('deployments')
   async getDeployments() {
     return this.analyticsService.getDeployments();
+  }
+
+  @Get('events')
+  async getEvents() {
+    return this.analyticsService.getEvents();
+  }
+
+  @Post('events')
+  async createEvent(@Body() data: { name: string; type: string }) {
+    return this.analyticsService.createEvent(data);
+  }
+
+  @Post('publications')
+  async createPublication(
+    @Body() data: {
+      eventId: string;
+      platform: string;
+      publishedAt: string;
+      leadTimeDays: number;
+      interactions: number;
+    }
+  ) {
+    return this.analyticsService.createPublication(data);
   }
 }

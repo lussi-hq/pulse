@@ -14,7 +14,9 @@ import {
   Search,
   ExternalLink,
   ChevronDown,
-  RefreshCw
+  RefreshCw,
+  Plus,
+  X
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -48,9 +50,10 @@ interface AnalyticsData {
       interactions: number;
     };
   };
-  timeline: Array<{ date: string; LinkedIn: number; Facebook: number }>;
+  platforms: string[];
+  timeline: Array<{ date: string; [platform: string]: any }>;
   channelDistribution: Array<{ name: string; value: number }>;
-  platformPerformance: Array<{ eventName: string; LinkedIn: number; Facebook: number }>;
+  platformPerformance: Array<{ eventName: string; [platform: string]: any }>;
   globalImpactDistribution: Array<{ eventName: string; value: number }>;
 }
 
@@ -64,14 +67,45 @@ interface Deployment {
   interactions: number;
 }
 
+interface CampaignEvent {
+  id: string;
+  name: string;
+  type: string;
+}
+
 export default function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [events, setEvents] = useState<CampaignEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Search / Filters
   const [searchTerm, setSearchTerm] = useState("");
   const [filterType, setFilterType] = useState("All");
+
+  // Modals state
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [showPubModal, setShowPubModal] = useState(false);
+
+  // Forms state
+  const [newEvent, setNewEvent] = useState({ name: "", type: "Externe" });
+  const [newPub, setNewPub] = useState({
+    eventId: "",
+    platform: "LinkedIn",
+    customPlatform: "",
+    publishedAt: new Date().toISOString().split("T")[0],
+    leadTimeDays: "3",
+    interactions: "100"
+  });
+
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -79,20 +113,28 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [resAnalytics, resDeployments] = await Promise.all([
+      const [resAnalytics, resDeployments, resEvents] = await Promise.all([
         fetch(`${API_URL}/api/analytics`),
-        fetch(`${API_URL}/api/deployments`)
+        fetch(`${API_URL}/api/deployments`),
+        fetch(`${API_URL}/api/events`)
       ]);
 
-      if (!resAnalytics.ok || !resDeployments.ok) {
+      if (!resAnalytics.ok || !resDeployments.ok || !resEvents.ok) {
         throw new Error("Erreur lors de la récupération des données du serveur API.");
       }
 
       const analyticsData = await resAnalytics.json();
       const deploymentsData = await resDeployments.json();
+      const eventsData = await resEvents.json();
 
       setAnalytics(analyticsData);
       setDeployments(deploymentsData);
+      setEvents(eventsData);
+
+      // Pre-select first event in form if available
+      if (eventsData.length > 0 && !newPub.eventId) {
+        setNewPub(prev => ({ ...prev, eventId: eventsData[0].id }));
+      }
     } catch (err: any) {
       setError(err.message || "Impossible de se connecter à l'API backend.");
     } finally {
@@ -105,15 +147,86 @@ export default function Dashboard() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType]);
+
   if (!mounted) return null;
 
   const COLORS = [
-    "var(--chart-1, oklch(0.809 0.105 251.813))",
+    "var(--primary, oklch(0.488 0.243 264.376))",
     "var(--chart-2, oklch(0.623 0.214 259.815))",
+    "var(--chart-1, oklch(0.809 0.105 251.813))",
     "var(--chart-3, oklch(0.546 0.245 262.881))",
-    "var(--chart-4, oklch(0.488 0.243 264.376))",
     "var(--chart-5, oklch(0.424 0.199 265.638))"
   ];
+
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setFormError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEvent)
+      });
+      if (!res.ok) throw new Error("Erreur lors de l'enregistrement de l'activité.");
+      
+      const created = await res.json();
+      setNewEvent({ name: "", type: "Externe" });
+      setShowEventModal(false);
+      
+      // Auto select the new event for subsequent publication forms
+      setNewPub(prev => ({ ...prev, eventId: created.id }));
+      
+      await fetchData();
+    } catch (err: any) {
+      setFormError(err.message || "Erreur de connexion.");
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
+  const handleCreatePublication = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormLoading(true);
+    setFormError(null);
+
+    const platformName = newPub.platform === "Autre" ? newPub.customPlatform : newPub.platform;
+    if (!platformName) {
+      setFormError("Veuillez spécifier le nom du réseau social.");
+      setFormLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/api/publications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: newPub.eventId,
+          platform: platformName,
+          publishedAt: newPub.publishedAt,
+          leadTimeDays: Number(newPub.leadTimeDays),
+          interactions: Number(newPub.interactions)
+        })
+      });
+      if (!res.ok) throw new Error("Erreur lors de l'enregistrement du déploiement.");
+      
+      setNewPub(prev => ({
+        ...prev,
+        customPlatform: "",
+        interactions: "100"
+      }));
+      setShowPubModal(false);
+      await fetchData();
+    } catch (err: any) {
+      setFormError(err.message || "Erreur de connexion.");
+    } finally {
+      setFormLoading(false);
+    }
+  };
 
   const filteredDeployments = deployments.filter((d) => {
     const matchesSearch = d.activityName.toLowerCase().includes(searchTerm.toLowerCase()) || d.platform.toLowerCase().includes(searchTerm.toLowerCase());
@@ -121,10 +234,15 @@ export default function Dashboard() {
     return matchesSearch && matchesType;
   });
 
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentDeployments = filteredDeployments.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredDeployments.length / itemsPerPage);
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background text-foreground transition-colors duration-250">
       {/* Header bar matching dashboard-01 */}
-      <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b border-border bg-card/85 backdrop-blur px-6 justify-between">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-card/85 backdrop-blur px-6 justify-between">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
             <Activity className="h-6 w-6 stroke-[2.5]" />
@@ -158,10 +276,40 @@ export default function Dashboard() {
 
       {/* Main Layout Area */}
       <main className="flex flex-1 flex-col gap-8 p-6 md:p-8 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight">Tableau Opérationnel</h1>
+            <p className="text-sm text-muted-foreground">Analysez et pilotez les lancements et l'impact social en temps réel.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setFormError(null); setShowEventModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-secondary border border-border text-secondary-foreground rounded-lg text-sm font-semibold hover:bg-muted transition-all"
+            >
+              <Plus className="h-4 w-4" />
+              Créer Campagne
+            </button>
+            <button
+              onClick={() => {
+                setFormError(null);
+                if (events.length === 0) {
+                  setError("Veuillez d'abord créer une campagne/activité avant d'enregistrer une publication.");
+                  return;
+                }
+                setShowPubModal(true);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 transition-all shadow-sm shadow-primary/20"
+            >
+              <Plus className="h-4 w-4" />
+              Enregistrer Publication
+            </button>
+          </div>
+        </div>
+
         {error && (
           <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm flex items-center justify-between">
             <span>{error}</span>
-            <button onClick={fetchData} className="underline text-xs font-semibold hover:text-destructive-foreground">Réessayer</button>
+            <button onClick={() => setError(null)} className="underline text-xs font-semibold hover:opacity-85">Fermer</button>
           </div>
         )}
 
@@ -243,14 +391,14 @@ export default function Dashboard() {
 
             {/* Charts Section */}
             <div className="grid gap-6 md:grid-cols-2">
-              {/* Chart 1: Timeline de l'Engagement */}
+              {/* Chart 1: Timeline de l'Engagement (Dynamic Platforms) */}
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
                 <div className="flex flex-col gap-1 pb-4">
                   <h3 className="text-base font-bold tracking-tight flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-primary" />
                     Timeline de l'Engagement (Interactions)
                   </h3>
-                  <p className="text-xs text-muted-foreground">Tendance quotidienne pour LinkedIn vs Facebook ce mois-ci.</p>
+                  <p className="text-xs text-muted-foreground">Tendance quotidienne d'interaction par réseau social.</p>
                 </div>
                 <div className="h-[280px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
@@ -263,8 +411,17 @@ export default function Dashboard() {
                         labelStyle={{ fontWeight: "bold" }}
                       />
                       <Legend verticalAlign="top" height={36} />
-                      <Line type="monotone" dataKey="LinkedIn" stroke="var(--primary)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                      <Line type="monotone" dataKey="Facebook" stroke="var(--chart-2)" strokeWidth={2.5} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                      {analytics.platforms.map((platform, idx) => (
+                        <Line
+                          key={platform}
+                          type="monotone"
+                          dataKey={platform}
+                          stroke={COLORS[idx % COLORS.length]}
+                          strokeWidth={2.5}
+                          dot={{ r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      ))}
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -323,8 +480,14 @@ export default function Dashboard() {
                         contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "var(--radius)" }}
                       />
                       <Legend verticalAlign="top" height={36} />
-                      <Bar dataKey="LinkedIn" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Facebook" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
+                      {analytics.platforms.map((platform, idx) => (
+                        <Bar
+                          key={platform}
+                          dataKey={platform}
+                          fill={COLORS[idx % COLORS.length]}
+                          radius={[4, 4, 0, 0]}
+                        />
+                      ))}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -413,8 +576,8 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border text-sm">
-                    {filteredDeployments.length > 0 ? (
-                      filteredDeployments.map((d) => (
+                    {currentDeployments.length > 0 ? (
+                      currentDeployments.map((d) => (
                         <tr key={d.id} className="hover:bg-muted/30 transition-colors">
                           <td className="p-4 pl-6 font-semibold">{d.activityName}</td>
                           <td className="p-4">
@@ -446,12 +609,219 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/10 text-sm">
+                  <div className="text-muted-foreground">
+                    Affichage de <span className="font-semibold">{indexOfFirstItem + 1}</span> à{" "}
+                    <span className="font-semibold">
+                      {Math.min(indexOfLastItem, filteredDeployments.length)}
+                    </span>{" "}
+                    sur <span className="font-semibold">{filteredDeployments.length}</span> déploiements
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted disabled:opacity-50 disabled:hover:bg-background transition-colors"
+                    >
+                      Précédent
+                    </button>
+                    <span className="text-muted-foreground font-medium px-2">
+                      Page <span className="font-semibold text-foreground">{currentPage}</span> sur{" "}
+                      <span className="font-semibold text-foreground">{totalPages}</span>
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 rounded-lg border border-border bg-background text-sm font-semibold hover:bg-muted disabled:opacity-50 disabled:hover:bg-background transition-colors"
+                    >
+                      Suivant
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         ) : null}
       </main>
 
-      <footer className="border-t border-border bg-card py-6 text-center text-xs text-muted-foreground">
+      {/* Modal 1: Create Campaign Event */}
+      {showEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowEventModal(false)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold mb-1">Créer une Campagne / Activité</h3>
+            <p className="text-xs text-muted-foreground mb-6">Ajouter un thème de campagne ou de déploiement.</p>
+            
+            {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
+            
+            <form onSubmit={handleCreateEvent} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Nom de l'Activité</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ex: Séminaire Cybersécurité RDC"
+                  value={newEvent.name}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Type de Zone</label>
+                <select
+                  value={newEvent.type}
+                  onChange={(e) => setNewEvent(prev => ({ ...prev, type: e.target.value }))}
+                  className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="Interne">Interne</option>
+                  <option value="Externe">Externe</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEventModal(false)}
+                  className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {formLoading ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 2: Create Publication / Record Performance */}
+      {showPubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg relative animate-in fade-in zoom-in-95 duration-200">
+            <button
+              onClick={() => setShowPubModal(false)}
+              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <h3 className="text-lg font-bold mb-1">Enregistrer une Publication</h3>
+            <p className="text-xs text-muted-foreground mb-6">Ajouter un post et renseigner ses performances initiales.</p>
+
+            {formError && <p className="mb-4 text-xs text-destructive bg-destructive/10 p-2 rounded">{formError}</p>}
+
+            <form onSubmit={handleCreatePublication} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Activité / Thème</label>
+                <select
+                  value={newPub.eventId}
+                  required
+                  onChange={(e) => setNewPub(prev => ({ ...prev, eventId: e.target.value }))}
+                  className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  {events.map((e) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.type})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Réseau Social</label>
+                <select
+                  value={newPub.platform}
+                  onChange={(e) => setNewPub(prev => ({ ...prev, platform: e.target.value }))}
+                  className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary mb-2"
+                >
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Facebook">Facebook</option>
+                  <option value="X">X (Twitter)</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="YouTube">YouTube</option>
+                  <option value="Autre">Autre Réseau</option>
+                </select>
+
+                {newPub.platform === "Autre" && (
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nom du réseau (ex: TikTok, Threads)"
+                    value={newPub.customPlatform}
+                    onChange={(e) => setNewPub(prev => ({ ...prev, customPlatform: e.target.value }))}
+                    className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Date de publication</label>
+                  <input
+                    type="date"
+                    required
+                    value={newPub.publishedAt}
+                    onChange={(e) => setNewPub(prev => ({ ...prev, publishedAt: e.target.value }))}
+                    className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Lead Time (Jours)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    step="0.1"
+                    value={newPub.leadTimeDays}
+                    onChange={(e) => setNewPub(prev => ({ ...prev, leadTimeDays: e.target.value }))}
+                    className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Engagement (Interactions)</label>
+                <input
+                  type="number"
+                  required
+                  min="0"
+                  value={newPub.interactions}
+                  onChange={(e) => setNewPub(prev => ({ ...prev, interactions: e.target.value }))}
+                  className="w-full rounded-lg border border-input bg-background p-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowPubModal(false)}
+                  className="px-4 py-2 border border-border rounded-lg text-sm font-semibold hover:bg-muted"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={formLoading}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                >
+                  {formLoading ? "Enregistrement..." : "Enregistrer"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <footer className="border-t border-border bg-card py-6 text-center text-xs text-muted-foreground mt-auto">
         <p>© 2026 Pulse. Tous droits réservés. Construit avec Next.js et NestJS.</p>
       </footer>
     </div>

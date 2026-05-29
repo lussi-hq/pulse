@@ -10,6 +10,8 @@
     "dev": "npm run dev --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspaces --if-present"
-    
+  },
+  "prisma": {
+    "seed": "node packages/database/dist/prisma/seed.js"
   }
 }

@@ -62,19 +62,22 @@ export class AnalyticsService {
       }
     });
 
-    // Timeline de l'engagement (LinkedIn vs Facebook by date in M)
-    const timelineMap: { [dateStr: string]: { date: string; LinkedIn: number; Facebook: number } } = {};
+    // Timeline de l'engagement (dynamic platform lines by date in M)
+    const platformsSet = new Set<string>();
+    pubsM.forEach(p => platformsSet.add(p.platform));
+    const platforms = Array.from(platformsSet);
+
+    const timelineMap: { [dateStr: string]: { date: string; [platform: string]: any } } = {};
     pubsM.forEach(p => {
       p.metrics.forEach(m => {
         const dateStr = m.recordedAt.toISOString().split('T')[0];
         if (!timelineMap[dateStr]) {
-          timelineMap[dateStr] = { date: dateStr, LinkedIn: 0, Facebook: 0 };
+          timelineMap[dateStr] = { date: dateStr };
+          platforms.forEach(plat => {
+            timelineMap[dateStr][plat] = 0;
+          });
         }
-        if (p.platform === 'LinkedIn') {
-          timelineMap[dateStr].LinkedIn += m.interactions;
-        } else if (p.platform === 'Facebook') {
-          timelineMap[dateStr].Facebook += m.interactions;
-        }
+        timelineMap[dateStr][p.platform] = (timelineMap[dateStr][p.platform] || 0) + m.interactions;
       });
     });
     const timeline = Object.values(timelineMap).sort((a, b) => a.date.localeCompare(b.date));
@@ -87,19 +90,19 @@ export class AnalyticsService {
     });
     const channelDistribution = Object.entries(channelMap).map(([name, value]) => ({ name, value }));
 
-    // Performance par Plateforme per Event (Facebook vs LinkedIn engagement side-by-side for each distinct event in M)
-    const eventPerformanceMap: { [eventId: string]: { eventName: string; LinkedIn: number; Facebook: number } } = {};
+    // Performance par Plateforme per Event (Facebook vs LinkedIn / other platforms engagement side-by-side for each distinct event in M)
+    // To keep the bar chart simple, we can group interactions by event and platform
+    const eventPerformanceMap: { [eventId: string]: { eventName: string; [platform: string]: any } } = {};
     pubsM.forEach(p => {
       const eventId = p.eventId;
       const interactions = p.metrics.reduce((sum, m) => sum + m.interactions, 0);
       if (!eventPerformanceMap[eventId]) {
-        eventPerformanceMap[eventId] = { eventName: p.event.name, LinkedIn: 0, Facebook: 0 };
+        eventPerformanceMap[eventId] = { eventName: p.event.name };
+        platforms.forEach(plat => {
+          eventPerformanceMap[eventId][plat] = 0;
+        });
       }
-      if (p.platform === 'LinkedIn') {
-        eventPerformanceMap[eventId].LinkedIn += interactions;
-      } else if (p.platform === 'Facebook') {
-        eventPerformanceMap[eventId].Facebook += interactions;
-      }
+      eventPerformanceMap[eventId][p.platform] = (eventPerformanceMap[eventId][p.platform] || 0) + interactions;
     });
     const platformPerformance = Object.values(eventPerformanceMap);
 
@@ -118,6 +121,7 @@ export class AnalyticsService {
         avgLeadTime: { value: avgLeadTimeM, delta: deltaLeadTime },
         topContent
       },
+      platforms,
       timeline,
       channelDistribution,
       platformPerformance,
@@ -148,5 +152,48 @@ export class AnalyticsService {
         interactions: totalInteractions
       };
     });
+  }
+
+  async getEvents() {
+    return this.prisma.event.findMany({
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  async createEvent(data: { name: string; type: string }) {
+    return this.prisma.event.create({
+      data: {
+        name: data.name,
+        type: data.type
+      }
+    });
+  }
+
+  async createPublication(data: {
+    eventId: string;
+    platform: string;
+    publishedAt: string;
+    leadTimeDays: number;
+    interactions: number;
+  }) {
+    const publishedAt = new Date(data.publishedAt);
+    const publication = await this.prisma.publication.create({
+      data: {
+        eventId: data.eventId,
+        platform: data.platform,
+        publishedAt,
+        leadTimeDays: Number(data.leadTimeDays)
+      }
+    });
+
+    await this.prisma.metric.create({
+      data: {
+        publicationId: publication.id,
+        interactions: Number(data.interactions),
+        recordedAt: publishedAt
+      }
+    });
+
+    return publication;
   }
 }
