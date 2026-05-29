@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
       target: builder
-    command: sh -c "npx prisma db push --schema=packages/database/prisma/schema.prisma && npx prisma db seed --schema=packages/database/prisma/schema.prisma && node apps/api/create-admin.js && npm run dev --workspace=@pulse/api"
+    command: sh -c "npx prisma generate --schema=packages/database/prisma/schema.prisma && npm run build --workspace=@pulse/database && npx prisma db push --schema=packages/database/prisma/schema.prisma && npx prisma db seed --schema=packages/database/prisma/schema.prisma && node apps/api/create-admin.js && npm run dev --workspace=@pulse/api"
     ports:
       - "5000:5000"
     environment:
