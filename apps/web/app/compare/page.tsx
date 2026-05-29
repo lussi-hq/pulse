@@ -367,7 +367,17 @@ export default function ComparePage() {
       </main>
 
       <footer className="border-t border-border bg-card py-6 text-center text-xs text-muted-foreground">
-        <p>© 2026 Pulse. Tous droits réservés. Construit avec Next.js et NestJS.</p>
+        <p>
+          © 2026 Pulse. Tous droits réservés. Build with love ❤️ by{" "}
+          <a
+            href="https://lussi.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:underline text-primary font-semibold"
+          >
+            Lussi
+          </a>
+        </p>
       </footer>
     </div>
   );
