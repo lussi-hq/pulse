@@ -10,9 +10,12 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername } from "../lib/auth";
 
 interface Deployment {
   id: string;
@@ -31,6 +34,7 @@ interface CampaignEvent {
 }
 
 export default function DeploymentsPage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [events, setEvents] = useState<CampaignEvent[]>([]);
@@ -66,12 +70,13 @@ export default function DeploymentsPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   const fetchData = async () => {
+    if (!getAuthToken()) return;
     setLoading(true);
     setError(null);
     try {
       const [resDeployments, resEvents] = await Promise.all([
-        fetch(`${API_URL}/api/deployments`),
-        fetch(`${API_URL}/api/events`)
+        authenticatedFetch(`${API_URL}/api/deployments`),
+        authenticatedFetch(`${API_URL}/api/events`)
       ]);
 
       if (!resDeployments.ok || !resEvents.ok) {
@@ -95,9 +100,13 @@ export default function DeploymentsPage() {
   };
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.push("/login");
+      return;
+    }
     setMounted(true);
     fetchData();
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -110,7 +119,7 @@ export default function DeploymentsPage() {
     setFormLoading(true);
     setFormError(null);
     try {
-      const res = await fetch(`${API_URL}/api/events`, {
+      const res = await authenticatedFetch(`${API_URL}/api/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEvent)
@@ -142,7 +151,7 @@ export default function DeploymentsPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/publications`, {
+      const res = await authenticatedFetch(`${API_URL}/api/publications`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -207,11 +216,24 @@ export default function DeploymentsPage() {
           </button>
           <div className="h-8 w-[1px] bg-border"></div>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
-              AD
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm uppercase">
+              {getAuthUsername() ? getAuthUsername().slice(0, 2) : "AD"}
             </div>
-            <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">Workspace Prod</span>
+            <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">
+              {getAuthUsername() || "Workspace Prod"}
+            </span>
           </div>
+          <button
+            onClick={() => {
+              removeAuthToken();
+              router.push("/login");
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border transition-all duration-200 text-xs font-medium"
+            title="Se déconnecter"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Se déconnecter</span>
+          </button>
         </div>
       </header>
 

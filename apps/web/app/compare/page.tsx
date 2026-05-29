@@ -11,9 +11,12 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  TrendingDown
+  TrendingDown,
+  LogOut
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { authenticatedFetch, removeAuthToken, getAuthToken, getAuthUsername } from "../lib/auth";
 import {
   ResponsiveContainer,
   BarChart,
@@ -46,6 +49,7 @@ interface AnalyticsData {
 }
 
 export default function ComparePage() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   
   // Selection states
@@ -61,12 +65,13 @@ export default function ComparePage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   const fetchComparison = async () => {
+    if (!getAuthToken()) return;
     setLoading(true);
     setError(null);
     try {
       const [resA, resB] = await Promise.all([
-        fetch(`${API_URL}/api/analytics?month=${monthA}`),
-        fetch(`${API_URL}/api/analytics?month=${monthB}`)
+        authenticatedFetch(`${API_URL}/api/analytics?month=${monthA}`),
+        authenticatedFetch(`${API_URL}/api/analytics?month=${monthB}`)
       ]);
 
       if (!resA.ok || !resB.ok) {
@@ -86,9 +91,13 @@ export default function ComparePage() {
   };
 
   useEffect(() => {
+    if (!getAuthToken()) {
+      router.push("/login");
+      return;
+    }
     setMounted(true);
     fetchComparison();
-  }, [monthA, monthB]);
+  }, [monthA, monthB, router]);
 
   if (!mounted) return null;
 
@@ -166,11 +175,24 @@ export default function ComparePage() {
           </button>
           <div className="h-8 w-[1px] bg-border"></div>
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm">
-              AD
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold text-sm uppercase">
+              {getAuthUsername() ? getAuthUsername().slice(0, 2) : "AD"}
             </div>
-            <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">Workspace Prod</span>
+            <span className="hidden sm:inline text-xs font-semibold text-muted-foreground">
+              {getAuthUsername() || "Workspace Prod"}
+            </span>
           </div>
+          <button
+            onClick={() => {
+              removeAuthToken();
+              router.push("/login");
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive border border-border transition-all duration-200 text-xs font-medium"
+            title="Se déconnecter"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Se déconnecter</span>
+          </button>
         </div>
       </header>
 
