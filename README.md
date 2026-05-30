@@ -139,6 +139,9 @@ Le mot de passe est haché en SHA-256 dans la base de données. Tous les endpoin
 La sécurité de Pulse est assurée et continuellement vérifiée à l'aide d'outils d'audit de référence :
 
 - **Herozion CLI ([herozion.io](https://herozion.io))** : Utilisé pour les scans approfondis du code source, la détection des failles applicatives (SAST) et la vérification des bonnes pratiques de sécurité au sein du monorepo.
+
+  ![Herozion Scan](docs/herozion.png)
+
 - **Trivy** : Intégré pour l'analyse des vulnérabilités au niveau du système de fichiers, des dépendances (`package-lock.json`) et des images Docker. Les alertes remontées (ex: CVE sur des packages comme `postcss` ou `qs`) sont traitées et fixées de manière proactive via la configuration `"overrides"` de npm et `npm audit fix`.
 
 ---
