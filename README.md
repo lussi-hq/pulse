@@ -5,14 +5,16 @@ Pulse est une application full-stack moderne permettant le suivi opérationnel, 
 ![Pulse Dashboard](docs/dashboard.png)
 
 ## 📋 Table des matières
-- [Aperçu](#-aperçu)
-- [Fonctionnalités](#-fonctionnalités)
-- [Architecture](#-architecture)
-- [Prérequis](#-prérequis)
-- [Installation & Démarrage Rapide](#-installation--démarrage-rapide)
-- [Environnement de Développement (Docker)](#-environnement-de-développement-docker)
-- [Déploiement en Production](#-déploiement-en-production)
-- [Authentification](#-authentification)
+- [Pulse - Dashboard Opérationnel \& Analytique](#pulse---dashboard-opérationnel--analytique)
+  - [📋 Table des matières](#-table-des-matières)
+  - [🎯 Aperçu](#-aperçu)
+  - [✨ Fonctionnalités](#-fonctionnalités)
+  - [🏗 Architecture](#-architecture)
+  - [⚙️ Prérequis](#️-prérequis)
+  - [🚀 Installation \& Démarrage Rapide (En Local)](#-installation--démarrage-rapide-en-local)
+  - [🐳 Environnement de Développement (Docker)](#-environnement-de-développement-docker)
+  - [📦 Déploiement en Production](#-déploiement-en-production)
+  - [🔐 Authentification](#-authentification)
 
 ---
 
@@ -110,6 +112,8 @@ Pour le déploiement de production, utilisez le fichier standard `docker-compose
    # Définir l'administrateur système pour l'amorçage
    ADMIN_USERNAME=admin
    ADMIN_PASSWORD=mon_mot_de_passe_secret
+
+   JWT_SECRET=une_clé_secrète_pour_le_jwt
    
    # Configurer les URLs
    NEXT_PUBLIC_API_URL=http://api:3001
