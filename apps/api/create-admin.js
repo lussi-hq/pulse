@@ -9,7 +9,7 @@ async function main() {
       const username = process.env.ADMIN_USERNAME;
       const password = process.env.ADMIN_PASSWORD;
       if (!username || !password) {
-        console.log('ADMIN_USERNAME or ADMIN_PASSWORD not set. Skipping admin creation.');
+        console.log('[Pulse Provisioning] Required environment variables for admin setup are not fully set. Skipping admin creation.');
         return;
       }
       const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
